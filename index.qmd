@@ -1,0 +1,159 @@
+---
+title: "Influenza A H7N9 in China, 2013"
+format: 
+  dashboard:
+    embed-resources: true
+theme: lux
+---
+
+```{r output=FALSE}
+# Load packages 
+if(!require(pacman)) install.packages("pacman")
+pacman::p_load(tidyverse, outbreaks, bslib, bsicons, shiny, 
+               rgeoboundaries, plotly, htmltools, reactable, sf)
+
+# view data
+head(outbreaks::fluH7N9_china_2013)
+```
+
+```{r }
+#Load the dataset
+df <- fluH7N9_china_2013
+```
+
+```{r}
+#Number of cases
+total_cases <- df %>% 
+  count() %>% 
+  pull(n)
+
+#Number hospitalized
+total_hospitalized <- df %>% 
+  summarise(total_hospitalized = sum(!is.na(date_of_hospitalisation))) %>% 
+  pull(total_hospitalized)
+
+#Deaths
+total_deaths <- df %>% 
+  filter(outcome == "Death") %>% 
+  count() %>% 
+  pull(n)
+  
+```
+
+```{r}
+#Plot the bar
+df_province_cases <- df %>% 
+  group_by(province) %>% 
+  count(name = 'cases') %>% 
+  ungroup() %>% 
+  mutate(tooltip_label = paste(province, 
+                               cases, 
+                               sep = ": "))
+
+plot1 <- ggplot(df_province_cases, aes(y = reorder(province,cases), 
+                                       x= cases,
+                                       text = tooltip_label)) +
+  geom_col(fill='#3f71ab') +
+  labs(y=NULL,
+       x = "Number of cases") +
+  theme_minimal()
+
+plot1_plotly <- ggplotly(plot1, tooltip = 'text')
+#plot1_plotly
+```
+
+
+```{r}
+#Number of cases by province
+china_boundary <- geoboundaries(country = 'china', 
+                                adm_lvl =1) %>% 
+  mutate(shapeName=str_replace(shapeName, ' Province| Municipality', ''))
+
+#setdiff(df_province_cases$province, china_boundary$shapeName)
+df_china_cases <- left_join(china_boundary, df_province_cases, by=c('shapeName' = 'province'))
+
+map <- ggplot(df_china_cases) +
+  geom_sf(aes(fill=cases,
+              text = tooltip_label),
+          show.legend = F) +
+  scale_fill_continuous(na.value='grey90') +
+  theme_void()
+
+map_plotly <- ggplotly(map, tooltip = 'text')
+```
+
+# HOME
+
+## Row 1 {height=25%}
+```{r}
+value_box(
+  title = "Total Cases",
+  value = total_cases,
+  showcase = bsicons::bs_icon("virus"),
+  theme = value_box_theme(bg = "#518fd6")
+)
+```
+
+```{r}
+value_box(
+  title = "Total Hospitalizations",
+  value = total_hospitalized,
+  showcase = bsicons::bs_icon("hospital"),
+  theme = value_box_theme(bg = "#214773")
+)
+```
+
+```{r}
+value_box(
+  title = "Total Deaths",
+  value = total_deaths,
+  showcase = bsicons::bs_icon("file-medical"),
+  theme = value_box_theme(bg = "#3f71ab")
+)
+```
+
+## Row 2 {height=75%}
+
+### {width=30%}
+
+```{r title = "Number of Cases by Province"}
+plot1_plotly
+```
+
+
+### {width=70%}
+
+```{r title = "Map of Provinces by Number of Cases"}
+map
+```
+
+# DOWNLOAD DATA
+```{r}
+htmltools::browsable(
+  tagList(
+    reactable(df, 
+              elementId = "gapminder-table", 
+              searchable = T, 
+              filterable = T), 
+    
+tags$button("Download as CSV", 
+            onclick = "Reactable.downloadDataCSV('gapminder-table')")
+  )
+)
+```
+
+# ABOUT
+
+This dashboard analyzes data on the 2013 influenza A H7N9 outbreak in China.
+
+Key points:
+
+- There were `r total_cases` total reported cases
+- `r total_hospitalized` cases were hospitalized  
+- `r total_deaths` deaths occurred
+- The most affected provinces were Zhejiang, Shanghai and Jiangsu
+
+The data is sourced from a Dryad dataset by Kucharski et al (2014) who collated case details from various reports. This dashboard provides an interactive visualization of the outbreak's geographical distribution and key statistics.
+
+Reference: 
+Kucharski, A., Mills, H., Pinsent, A., Fraser, C., Kerkhove, M. V., Donnelly, C. A., & Riley, S. (2014). Distinguishing between reservoir exposure and human-to-human transmission for emerging pathogens using case onset data. *PLOS Currents Outbreaks*, 1. https://doi.org/10.1371/currents.outbreaks.e1473d9bfc99d080ca242139a06c455f
