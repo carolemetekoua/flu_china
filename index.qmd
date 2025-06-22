@@ -124,7 +124,7 @@ plot1_plotly
 ### {width=70%}
 
 ```{r title = "Map of Provinces by Number of Cases"}
-map
+map_plotly
 ```
 
 # DOWNLOAD DATA
